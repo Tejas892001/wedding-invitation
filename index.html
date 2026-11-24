@@ -276,16 +276,17 @@ button{font:inherit;color:inherit}
 /* ---------- phones: use the full width, bigger text ---------- */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
 @media (max-width:520px){
-  body{font-size:17px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+  body{font-size:17px;padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
   .sec{padding-block:48px}
   .sec::before,.sec::after{width:118px;height:118px}
   .arch{padding-left:18px;padding-right:18px}
   .arch .inv,.arch .end{font-size:1.22rem}
   .arch .par{font-size:.95rem}
-  .scroll{width:min(100%,360px)}
-  .frame,.lift{width:min(100%,360px)}
-  .s-reach .map{max-width:min(100%,360px)}
-  .track{--cw:min(88%,340px)}
+  .scroll{width:100%;max-width:420px}
+  .frame,.lift{width:100%;max-width:440px}
+  .s-reach .map{max-width:100%}
+  .track{--cw:92%}
+  .arch{padding-left:14px;padding-right:14px}
   .fmeta li{font-size:.98rem}
   .fcard .fdate{font-size:1.3rem}
   .cd-tile .l{font-size:.7rem}
@@ -747,7 +748,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
       var open=!b.classList.contains('open');
       b.classList.toggle('open',open); b.setAttribute('aria-expanded',open);
       sec.classList.toggle('opened',open); wrap.classList.toggle('lit',open);
-      if(open) burst();
+      if(open){burst();if(window.startWeddingMusic)window.startWeddingMusic()}
       hint.innerHTML=open?'<span class="welcome">आपले हार्दिक स्वागत आहे</span>Scroll down to continue':'Tap the book to open';
     }
     b.addEventListener('click',toggle);
@@ -825,48 +826,35 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
 
   /* ---------- music: White Petals by Keys of Moon (embedded) ---------- */
   (function(){
-    var btn=$('#music'), a=null, playing=false, wasPlaying=false, fade=0, VOL=.55;
+    var btn=$('#music'), a=null, playing=false, wasPlaying=false, VOL=.6;
+    var u=(function(){var s=atob(MUSIC_B64),n=s.length,x=new Uint8Array(n);for(var i=0;i<n;i++)x[i]=s.charCodeAt(i);return x})();
     function ui(on){
       btn.classList.toggle('on',on); btn.setAttribute('aria-pressed',on?'true':'false');
       btn.setAttribute('aria-label',on?'Pause music':'Play wedding music');
     }
-    var u=(function(){var s=atob(MUSIC_B64),n=s.length,x=new Uint8Array(n);for(var i=0;i<n;i++)x[i]=s.charCodeAt(i);return x})();
     function make(){
       if(a) return;
       a=new Audio(URL.createObjectURL(new Blob([u],{type:'audio/mpeg'}))); a.loop=true; a.preload='auto';
-      a.setAttribute('playsinline',''); a.volume=0;
+      a.setAttribute('playsinline',''); try{a.volume=VOL}catch(e){}
+      a.addEventListener('playing',function(){if(playing){ui(true);disarm()}});
     }
-    function ramp(to){
-      clearInterval(fade); var n=0;
-      fade=setInterval(function(){
-        n++; var d=to-a.volume;
-        if(Math.abs(d)<.04||n>25){try{a.volume=to}catch(e){}clearInterval(fade);if(to===0)a.pause();return}
-        try{a.volume=Math.max(0,Math.min(1,a.volume+(d>0?.04:-.04)))}catch(e){clearInterval(fade)}
-      },60);
-    }
-    /* the UI only shows "playing" once the browser has really started the audio */
+    /* UI turns on only when the browser reports real playback; until then every tap retries */
     function play(){
       make(); a.muted=false; playing=true;
       var p=a.play();
-      var ok=function(){if(!playing)return;ui(true);ramp(VOL)};
-      var fail=function(){playing=false;ui(false);arm()};
-      if(p&&p.then)p.then(ok,fail);else ok();
+      if(p&&p.catch)p.catch(function(){playing=false;ui(false);arm()});
     }
-    function pause(){
-      playing=false; ui(false);
-      if(a)ramp(0);
-    }
+    function pause(){playing=false;ui(false);if(a)a.pause()}
+    window.startWeddingMusic=function(){if(!playing)play()};
     btn.addEventListener('click',function(e){e.stopPropagation();playing?pause():play()});
-    /* phones only count tap-end / click as permission for sound, so wait for those */
-    var evs=['touchend','click','keydown'];
-    function arm(){evs.forEach(function(n){document.addEventListener(n,first,true)})}
-    function disarm(){evs.forEach(function(n){document.removeEventListener(n,first,true)})}
-    function first(e){if(btn.contains(e.target))return;disarm();if(!playing)play()}
+    var evs=['pointerup','touchend','mouseup','click','keydown'], armed=false;
+    function arm(){if(armed)return;armed=true;evs.forEach(function(n){document.addEventListener(n,first,true)})}
+    function disarm(){if(!armed)return;armed=false;evs.forEach(function(n){document.removeEventListener(n,first,true)})}
+    function first(e){if(btn.contains(e.target))return;if(!playing)play()}
     make(); arm();
-    /* desktop browsers that allow autoplay start straight away */
-    try{var p0=a.play();if(p0&&p0.then)p0.then(function(){disarm();playing=true;ui(true);ramp(VOL)},function(){})}catch(err){}
+    try{var p0=a.play();if(p0&&p0.then)p0.then(function(){playing=true},function(){})}catch(err){}
     document.addEventListener('visibilitychange',function(){
-      if(document.hidden){wasPlaying=playing;if(playing){playing=false;clearInterval(fade);a.pause();ui(false)}}
+      if(document.hidden){wasPlaying=playing;if(playing){playing=false;a.pause();ui(false)}}
       else if(wasPlaying){wasPlaying=false;play()}
     });
   })();
