@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#37060f">
 <title>Dayanand & Vishalakshi</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -266,7 +272,27 @@ button{font:inherit;color:inherit}
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
   #petals{display:none}
 }
+
+/* ---------- phones: use the full width, bigger text ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
+@media (max-width:520px){
+  body{font-size:17px;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+  .sec{padding-block:48px}
+  .sec::before,.sec::after{width:118px;height:118px}
+  .arch{padding-left:18px;padding-right:18px}
+  .arch .inv,.arch .end{font-size:1.22rem}
+  .arch .par{font-size:.95rem}
+  .scroll{width:min(100%,360px)}
+  .frame,.lift{width:min(100%,360px)}
+  .s-reach .map{max-width:min(100%,360px)}
+  .track{--cw:min(88%,340px)}
+  .fmeta li{font-size:.98rem}
+  .fcard .fdate{font-size:1.3rem}
+  .cd-tile .l{font-size:.7rem}
+}
 </style>
+</head>
+<body>
 
 <div class="garland" aria-hidden="true"><svg id="garlandSvg" viewBox="0 0 400 60" preserveAspectRatio="none"></svg></div>
 <canvas id="petals" aria-hidden="true"></canvas>
@@ -800,45 +826,51 @@ button{font:inherit;color:inherit}
   /* ---------- music: White Petals by Keys of Moon (embedded) ---------- */
   (function(){
     var btn=$('#music'), a=null, playing=false, wasPlaying=false, fade=0, VOL=.55;
-    function make(){
-      var s=atob(MUSIC_B64), n=s.length, u=new Uint8Array(n); for(var i=0;i<n;i++)u[i]=s.charCodeAt(i);
-      a=new Audio(URL.createObjectURL(new Blob([u],{type:'audio/mpeg'}))); a.loop=true; a.preload='auto'; a.volume=0;
+    function ui(on){
+      btn.classList.toggle('on',on); btn.setAttribute('aria-pressed',on?'true':'false');
+      btn.setAttribute('aria-label',on?'Pause music':'Play wedding music');
     }
-    function ramp(to,done){
-      clearInterval(fade);
+    var u=(function(){var s=atob(MUSIC_B64),n=s.length,x=new Uint8Array(n);for(var i=0;i<n;i++)x[i]=s.charCodeAt(i);return x})();
+    function make(){
+      if(a) return;
+      a=new Audio(URL.createObjectURL(new Blob([u],{type:'audio/mpeg'}))); a.loop=true; a.preload='auto';
+      a.setAttribute('playsinline',''); a.volume=0;
+    }
+    function ramp(to){
+      clearInterval(fade); var n=0;
       fade=setInterval(function(){
-        var d=to-a.volume;
-        if(Math.abs(d)<.04){a.volume=to;clearInterval(fade);if(done)done();return}
-        a.volume=Math.max(0,Math.min(1,a.volume+(d>0?.04:-.04)));
+        n++; var d=to-a.volume;
+        if(Math.abs(d)<.04||n>25){try{a.volume=to}catch(e){}clearInterval(fade);if(to===0)a.pause();return}
+        try{a.volume=Math.max(0,Math.min(1,a.volume+(d>0?.04:-.04)))}catch(e){clearInterval(fade)}
       },60);
     }
+    /* the UI only shows "playing" once the browser has really started the audio */
     function play(){
-      if(!a) make();
-      a.muted=false;
-      var p=a.play(); if(p&&p.catch)p.catch(function(){});
-      ramp(VOL); playing=true;
-      btn.classList.add('on'); btn.setAttribute('aria-pressed','true'); btn.setAttribute('aria-label','Pause music');
+      make(); a.muted=false; playing=true;
+      var p=a.play();
+      var ok=function(){if(!playing)return;ui(true);ramp(VOL)};
+      var fail=function(){playing=false;ui(false);arm()};
+      if(p&&p.then)p.then(ok,fail);else ok();
     }
     function pause(){
-      if(!a) return; playing=false;
-      ramp(0,function(){if(!playing)a.pause()});
-      btn.classList.remove('on'); btn.setAttribute('aria-pressed','false'); btn.setAttribute('aria-label','Play wedding music');
+      playing=false; ui(false);
+      if(a)ramp(0);
     }
     btn.addEventListener('click',function(e){e.stopPropagation();playing?pause():play()});
-    /* on by default: try sound at once; if blocked, play silently and unmute on the guest's first tap */
-    var evs=['pointerdown','touchend','click','keydown','wheel'];
+    /* phones only count tap-end / click as permission for sound, so wait for those */
+    var evs=['touchend','click','keydown'];
     function arm(){evs.forEach(function(n){document.addEventListener(n,first,true)})}
     function disarm(){evs.forEach(function(n){document.removeEventListener(n,first,true)})}
     function first(e){if(btn.contains(e.target))return;disarm();if(!playing)play()}
-    try{
-      make();
-      var p0=a.play();
-      if(p0&&p0.then){p0.then(function(){playing=true;ramp(VOL);btn.classList.add('on');btn.setAttribute('aria-pressed','true');btn.setAttribute('aria-label','Pause music')}).catch(function(){arm();a.muted=true;var q=a.play();if(q&&q.catch)q.catch(function(){})})}else{arm()}
-    }catch(err){arm()}
+    make(); arm();
+    /* desktop browsers that allow autoplay start straight away */
+    try{var p0=a.play();if(p0&&p0.then)p0.then(function(){disarm();playing=true;ui(true);ramp(VOL)},function(){})}catch(err){}
     document.addEventListener('visibilitychange',function(){
-      if(document.hidden){wasPlaying=playing; if(playing){playing=false;clearInterval(fade);a.pause();btn.classList.remove('on');btn.setAttribute('aria-pressed','false')}}
-      else if(wasPlaying){wasPlaying=false; play()}
+      if(document.hidden){wasPlaying=playing;if(playing){playing=false;clearInterval(fade);a.pause();ui(false)}}
+      else if(wasPlaying){wasPlaying=false;play()}
     });
   })();
 })();
 </script>
+</body>
+</html>
